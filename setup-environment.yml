@@ -1,0 +1,106 @@
+---
+- name: Setup development environment
+  hosts: localhost
+  become: yes
+  tasks:
+
+    - name: Ensure git is installed
+      apt:
+        name: git
+        state: present
+
+    - name: Ensure stow is installed
+      apt:
+        name: stow
+        state: present
+
+    - name: Ensure zsh is installed
+      apt:
+        name: zsh
+        state: present
+
+    - name: Change default shell to zsh
+      command: chsh -s /usr/bin/zsh {{ ansible_user }}
+      args:
+        creates: /bin/zsh
+
+    - name: Install Oh My Zsh
+      shell: |
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || true
+      args:
+        creates: /home/{{ ansible_user }}/.oh-my-zsh
+
+    - name: Install Zsh Autosuggestions plugin
+      git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: /home/{{ ansible_user }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions
+        update: no
+
+    - name: Install Zsh Syntax Highlighting plugin
+      git:
+        repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+        dest: /home/{{ ansible_user }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+        update: no
+
+    - name: Install You-Should-Use plugin
+      git:
+        repo: https://github.com/MichaelAquilina/zsh-you-should-use
+        dest: /home/{{ ansible_user }}/.oh-my-zsh/custom/plugins/you-should-use
+        update: no
+
+    - name: Install Powerlevel10k theme
+      git:
+        repo: https://github.com/romkatv/powerlevel10k.git
+        dest: /home/{{ ansible_user }}/.oh-my-zsh/custom/themes/powerlevel10k
+        depth: 1
+
+    - name: Ensure i3-wm is installed
+      apt:
+        name: i3-wm
+        state: present
+
+    - name: Ensure snap is installed
+      apt:
+        name: snapd
+        state: present
+
+    - name: Install GitHub CLI
+      shell: |
+        type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)
+        sudo mkdir -p -m 755 /etc/apt/keyrings
+        wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+        sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update
+        sudo apt install gh -y
+      args:
+        creates: /usr/bin/gh
+
+    - name: Install LazyGit
+      shell: |
+        LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+        curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+        tar xf lazygit.tar.gz lazygit
+        sudo install lazygit /usr/local/bin
+      args:
+        creates: /usr/local/bin/lazygit
+
+    - name: Install Neovim
+      shell: |
+        curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+        sudo rm -rf /opt/nvim
+        sudo tar -C /opt -xzf nvim-linux64.tar.gz
+      args:
+        creates: /opt/nvim/bin/nvim
+
+    - name: Clone dotfiles repository
+      git:
+        repo: https://github.com/Hugornda/dotfiles.git
+        dest: /home/{{ ansible_user }}/dotfiles
+        version: master
+
+    - name: Stow dotfiles
+      shell: |
+        cd /home/{{ ansible_user }}/dotfiles
+        stow .
+
